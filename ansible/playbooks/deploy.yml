@@ -1,0 +1,73 @@
+---
+- hosts: all
+  become: yes
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+      ignore_errors: yes
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Remove old backend container
+      docker_container:
+        name: backend
+        state: absent
+        force_kill: yes
+
+    - name: Remove old frontend container
+      docker_container:
+        name: frontend
+        state: absent
+        force_kill: yes
+
+    - name: Create Docker network
+      docker_network:
+        name: app
+        state: present
+
+    - name: Build backend image
+      docker_image:
+        name: backend
+        source: build
+        build:
+          path: /home/eissa/log-analyzer/backend
+
+    - name: Build frontend image
+      docker_image:
+        name: frontend
+        source: build
+        build:
+          path: /home/eissa/log-analyzer/frontend
+
+    - name: Run backend container
+      docker_container:
+        name: backend
+        image: backend
+        state: started
+        restart_policy: always
+        networks:
+          - name: app
+        ports:
+          - "5000:5000"
+
+    - name: Run frontend container
+      docker_container:
+        name: frontend
+        image: frontend
+        state: started
+        restart_policy: always
+        networks:
+          - name: app
+        ports:
+          - "5173:5173"
